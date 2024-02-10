@@ -12,6 +12,20 @@
 #define function add1(uint256) payable returns(uint256)
 
 
-#define macro MAIN() = takes(0) returns(0) {
+#define macro MAIN() = takes (0) returns (0) {
+    // Check if the called function matches the `add1(uint256)` selector
+    0x00 calldataload // Load the function selector from calldata
+    0xa053f1f8 // Push the `add1(uint256)` selector onto the stack
+    eq // Check for equality
+    jumpi(add1_function, revert_function) // Jump to `add1_function` if equal, else `revert_function`
 
+    add1_function:
+    // Skip the first 4 bytes (function selector) and load the next 32 bytes (input argument)
+    0x04 calldataload 
+    0x01 add // Add 1 to the input
+    0x00 mstore // Store the result at memory location 0
+    0x20 0x00 return // Return 32 bytes starting from memory location 0
+
+    revert_function:
+    0x00 0x00 revert // Revert if function selector does not match
 }
