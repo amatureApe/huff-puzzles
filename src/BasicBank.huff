@@ -8,9 +8,69 @@
  *      - keeping track of and viewing balance
  */
 
+// #define function balanceOf(address) payable returns(uint256)
+// #define function withdraw(uint256) payable returns()
+
+// #define macro MAIN() = takes(0) returns(0) {
+
+// }
+
+///////////////////////////////////////////////////////
+//////////////////// SOLUTION //////////////////////////
+///////////////////////////////////////////////////////
+
 #define function balanceOf(address) payable returns(uint256)
 #define function withdraw(uint256) payable returns()
 
-#define macro MAIN() = takes(0) returns(0) {
+// Storage slot for balances mapping
+#define constant BALANCES_SLOT = FREE_STORAGE_POINTER()
 
+// Macro to retrieve the balance of an address
+#define macro GET_BALANCE() = takes(1) returns(1) {
+    0x00 calldataload          // Load the address from calldata
+    [BALANCES_SLOT] sload      // Load the balance from storage
+}
+
+// Macro to update the balance of an address
+#define macro UPDATE_BALANCE() = takes(2) returns(0) {
+    [BALANCES_SLOT] sstore     // Store the updated balance in storage
+}
+
+// Macro for the receive function (fallback)
+#define macro RECEIVE() = takes(0) returns(0) {
+    caller                    // Get the caller's address
+    callvalue                 // Get the amount of Ether sent
+    UPDATE_BALANCE()          // Update the caller's balance
+}
+
+// Macro for the withdraw function
+#define macro WITHDRAW() = takes(0) returns(0) {
+    0x04 calldataload         // Load the withdrawal amount from calldata
+    dup1                      // Duplicate the withdrawal amount
+    caller                    // Get the caller's address
+    GET_BALANCE()             // Get the caller's balance
+    dup1                      // Duplicate the balance
+    sub                       // Subtract the withdrawal amount from the balance
+    swap2                     // Swap the balance and withdrawal amount
+    UPDATE_BALANCE()          // Update the caller's balance
+    0x00 mstore               // Store the withdrawal amount in memory
+    0x20 0x00 return          // Return the withdrawal amount
+}
+
+#define macro MAIN() = takes(0) returns(0) {
+    0x00 calldataload         // Load the function selector from calldata
+    dup1 0xe1f8a921 eq        // Check if the selector matches balanceOf(address)
+    withdraw jumpi            // Jump to withdraw if the selector matches
+    
+    0x00 callvalue gt         // Check if Ether was sent (receive function)
+    receive jumpi             // Jump to receive if Ether was sent
+    
+    0x00 0x00 revert          // Revert if no matching function found
+    
+    receive:
+        RECEIVE()             // Call the RECEIVE macro
+        0x00 0x00 return      // Return with no data
+    
+    withdraw:
+        WITHDRAW()            // Call the WITHDRAW macro
 }
